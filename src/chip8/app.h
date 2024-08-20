@@ -4,10 +4,11 @@
 #include "../chip8/chip.h"
 #include "../chip8/display.h"
 
+namespace chip8 {
 class App {
    acGraphics::Window window;
-   chip8::Display display;
-   chip8::Chip chip;
+   Display display;
+   Chip chip;
 
 
 public:
@@ -25,9 +26,12 @@ public:
 
     void run(char* rom){
       chip.loadROM(rom);
+      display.enableDebug();
       display.attach(&chip);
       window.attach(&display);
       window.run();
     }
 
 };
+
+}

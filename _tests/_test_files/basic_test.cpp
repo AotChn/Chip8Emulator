@@ -5,7 +5,7 @@
 #include <iostream>
 #include <iomanip>
 #include <vector>
-#include "../../src/app/app.h"
+#include "../../src/chip8/app.h"
 
 
 

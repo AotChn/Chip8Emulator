@@ -9,12 +9,15 @@ namespace chip8{
 Chip::Chip() {
     PC = startAddress;
     I = startAddress;
+    SP = 0x0;
+    srand(time(0));
     std::fill(std::begin(V), std::end(V), 0);
     std::fill(std::begin(stack), std::end(stack), 0);
     std::fill(std::begin(input), std::end(input), 0);
     std::fill(std::begin(mem), std::end(mem), 0);
     loadFont();
     loadLookup();
+    op00E0();
 };
 
 void Chip::loadLookup() {
@@ -124,28 +127,28 @@ int Chip::opNULL() {
 }
 
 int Chip::_lookup0() {
-    uint8_t bit0 = opcode & 0x0F;
-    return ((*this).*(lookup0[bit0]))();
+    uint8_t forth = MASK_000N(opcode);
+    return ((*this).*(lookup0[forth]))();
 }
 
 int Chip::_lookupE(){
-    uint8_t third = (opcode >> 4) & 0x0F;
-    uint8_t fourth = opcode & 0x0F;
-    uint8_t byte = (third << 4) | fourth;
+    uint8_t third = MASK_00N0(opcode);
+    uint8_t forth = MASK_000N(opcode);
+    uint8_t byte = (third << 4) | forth;
     return ((*this).*(lookup8[byte]))();
 }
 
 int Chip::_lookupF(){
-    uint8_t third = (opcode >> 4) & 0x0F;
-    uint8_t fourth = opcode & 0x0F;
-    uint8_t byte = (third << 4) | fourth;
+    uint8_t third = MASK_00N0(opcode);
+    uint8_t forth = MASK_000N(opcode);
+    uint8_t byte = (third << 4) | forth;
     return ((*this).*(lookupF[byte]))();
 
 }
 
 int Chip::_lookup8(){
-    uint8_t bit0 = opcode & 0x0F;
-    return ((*this).*(lookup8[bit0]))();
+    uint8_t forth = MASK_000N(opcode);
+    return ((*this).*(lookup8[forth]))();
 }
 
 int Chip::op00E0(){
@@ -158,183 +161,207 @@ int Chip::op00E0(){
 }
 
 int Chip::op00EE(){
-
+    stackPop();
+    PC = stackTop();
     return RET;
 }
 
 int Chip::op1NNN(){
-    PC = opcode & 0x0FFF;
+    PC = MASK_0NNN(opcode);
     return JP_Addr;
 }
 
 int Chip::op2NNN(){
-
+    stackPush(PC);
+    PC = MASK_0NNN(opcode);
     return CALL_Addr;
 }
 
+//may cause errors check if we incremented PC in fetch 
 int Chip::op3XNN(){
-
+    PC += (V[MASK_0N00(opcode)] == MASK_0NNN(opcode)) ? 2 : 0;
     return SE_Vx_Byte;
 }
 
-int Chip::op4XNN(){
 
+int Chip::op4XNN(){
+    PC += (V[MASK_0N00(opcode)] != MASK_0NNN(opcode)) ? 2 : 0;
     return SNE_Vx_Byte;
 }
 
 int Chip::op5XY0(){
-
+    PC += (V[MASK_0N00(opcode)] == V[MASK_00N0(opcode)]) ? 2 : 0;
     return SE_Vx_Vy;
 }
 
 int Chip::op6XNN(){
-    V[(opcode & 0x0F00) >> 8] = opcode & 0x00FF;
+    V[MASK_0N00(opcode)] = MASK_00NN(opcode);
     return LD_Vx_Byte;
 }
 
 int Chip::op7XNN(){
-    V[(opcode & 0x0F00) >> 8] += opcode & 0x00FF;
+    V[MASK_0N00(opcode)] += MASK_00NN(opcode);
+    std::cout << MASK_000N(opcode) << "yes";
     return ADD_Vx_Byte;
 }
 
 int Chip::op8XY0(){
-
+    V[MASK_0N00(opcode)] = V[MASK_00N0(opcode)];
     return LD_Vx_Vy;
 }
 
 int Chip::op8XY1(){
-
+    V[MASK_0N00(opcode)] |= V[MASK_0N00(opcode)];
     return OR_Vx_Vy;
 }
 
 int Chip::op8XY2(){
-
+    V[MASK_0N00(opcode)] &= V[MASK_0N00(opcode)];
     return AND_Vx_Vy;
 }
 
 int Chip::op8XY3(){
-
+    V[MASK_0N00(opcode)] ^= V[MASK_0N00(opcode)];
     return XOR_Vx_Vy;
 }
 
 int Chip::op8XY4(){
-
+    V[MASK_0N00(opcode)] += V[MASK_00N0(opcode)];
+    V[0xF] = (V[MASK_0N00(opcode)] > 0xFF) ? 1 : 0;
     return ADD_Vx_Vy;
 }
 
 int Chip::op8XY5(){
-
+    V[MASK_0N00(opcode)] = V[MASK_00N0(opcode)] - V[MASK_0N00(opcode)];
+    V[0xF] = (V[MASK_0N00(opcode)] >= V[MASK_00N0(opcode)]) ? 1 : 0;
     return SUB_Vx_Vy;
 }
 
 int Chip::op8XY6(){
-
+    V[0xF] = V[MASK_0N00(opcode)] & 1;
+    V[MASK_0N00(opcode)] >>= 1;
     return SHR_Vx;
 }
 
 int Chip::op8XY7(){
-
+    V[MASK_0N00(opcode)] = V[MASK_0N00(opcode)] - V[MASK_00N0(opcode)];
+    V[0xF] = (V[MASK_00N0(opcode)] >= V[MASK_0N00(opcode)]) ? 1 : 0;
     return SUBN_Vx_Vy;
 }
 
 int Chip::op8XYE(){
-
+    V[0xF] = V[MASK_0N00(opcode)] >> 7;
+    V[MASK_0N00(opcode)] <<= 1;
     return SHL_Vx;
 }
 
 int Chip::op9XY0(){
-
+    PC += (V[MASK_0N00(opcode)] != V[MASK_00N0(opcode)]) ? 2 : 0;
     return SNE_Vx_Vy;
 }
 
 int Chip::opANNN(){
-    I = opcode & 0x0FFF;
+    I = MASK_0NNN(opcode);
     return LD_I_Addr;
 }
 
 int Chip::opBNNN(){
-
+    PC = MASK_0NNN(opcode) + V[0x0];
     return JP_V0_Addr;
 }
 
 int Chip::opCXNN(){
-
+    uint8_t r = rand() % UINT8_MAX;
+    V[MASK_0N00(opcode)] = r & MASK_00NN(opcode);
     return RND_Vx_Byte;
 }
 
 int Chip::opDXYN(){
-    uint16_t x = V[(opcode & 0x0F00) >> 8]; //start x
-    uint16_t y = V[(opcode & 0x00F0) >> 4]; //start y
-    uint16_t N = opcode & 0x000F;
+    uint16_t x = V[MASK_0N00(opcode)]; //start x
+    uint16_t y = V[MASK_00N0(opcode)]; //start y
+    uint16_t N = MASK_000N(opcode);
     V[0xF] = 0;
     //row are sized up to N 
+    std::cout << x << " | " << y << "\n";
     for (int row=0; row<N; row++) {
         //col are sized 8 max
         uint8_t spriteByte = mem[I + row];
         for (int col=0; col<maxSpriteWidth; col++){
             uint8_t pixel = (spriteByte >> ((maxSpriteWidth - 1) - col)) & 0x01;
-            if (frameBuffer[x + col][y + row]) {
-                V[0xF] = 1;
-            }
-            frameBuffer[(x + col) % maxWidth][(y + row) % maxHeight] ^= pixel;
+            V[0xF] = (frameBuffer[x + col][y + row]) ? 1 : 0;
+            frameBuffer[(x + col)][(y + row)] ^= pixel;
         }
     }
     return DRW_Vx_Vy_Nibble;
 }
 
 int Chip::opEX9E(){
-
+    PC += (input[V[MASK_0N00(opcode)]] == 1) ? 2 : 0;
     return SKP_Vx;
 }
 
 int Chip::opEXA1(){
-
+    PC += (input[V[MASK_0N00(opcode)]] != 1) ? 2 : 0;
     return SKNP_Vx;
 }
 
 int Chip::opFX07(){
-
+    V[MASK_0N00(opcode)] = DT;
     return LD_Vx_Delay;
 }
 
 int Chip::opFX0A(){
-
+    bool pressed = false;
+    for (int i=0; i<inputSize; i++) {
+        if(input[i] == 0) {
+            pressed = true;
+            V[MASK_0N00(opcode)] = i;
+            break;
+        }
+    }
+    PC -= (!pressed) ? 2 : 0;
     return LD_Vx_Key;
 }
 
 int Chip::opFX15(){
-
+    DT = V[MASK_0N00(opcode)];
     return LD_Delay_Vx;
 }
 
 int Chip::opFX18(){
-
+    ST = V[MASK_0N00(opcode)];
     return LD_Sound_Vx;
 }
 
 int Chip::opFX1E(){
+    I += V[MASK_0N00(opcode)];
 
     return ADD_I_Vx;
 }
 
-int Chip::opFX29(){
-
+int Chip::opFX29(){ //its length is 5
+    I = startFont + (V[MASK_0N00(opcode)] * 5);
     return LD_F_Vx;
 }
 
 int Chip::opFX33(){
-
+    mem[I] = V[MASK_0N00(opcode)] / 100 % 10;
+    mem[I + 1] = V[MASK_0N00(opcode)] / 10 % 10;
+    mem[I + 2] = V[MASK_0N00(opcode)] % 10;
     return LD_B_Vx;
 }
 
 int Chip::opFX55(){
-
+    for(int i=0; i<MASK_0N00(opcode); i++) {
+        mem[I + i] = V[i];
+    }
     return LD_I_Vx;
 }
 
 int Chip::opFX65(){
-
-
+    for(int i=0; i<MASK_0N00(opcode); i++) {
+        V[i] = mem[I + i];
+    }
     return LD_Vx_I;
 }
 
@@ -364,17 +391,47 @@ int Chip::execute(Chip::instruction funct){
 }
 
 //===========================================
+//	STACK OPERATIONS
+//===========================================
+
+int Chip::stackPush(uint16_t item) {
+    ++SP;
+    if(SP >= stackSize) {
+        std::cout << "error<Stack Overflow>\n";
+        return -1;
+    }
+    stack[SP] = item;
+    return item;
+}
+
+int Chip::stackPop() {
+    int pop = stack[SP];
+    --SP;
+    if(SP < 0) {
+        std::cout << "error<Attempt to Pop empty Stack>\n";
+        return -2;
+    }
+    return pop;
+}
+
+uint16_t Chip::stackTop() {
+    return stack[SP];
+}
+
+//===========================================
 //	TESTING
 //===========================================
 
 void Chip::printRegisters() {
+    std::string out;
     for (int i=0; i<16; i++) {
-        std::cout<< V[i] << "|";
+        if(V[i] != 0) {
+            std::cout<< "V["<< i << "]:" << (int)V[i] << "| ";
+        }
     }
-    PRINT("\n");
 }
 
-void printFunctionExecuted(int executeCode) {
+void Chip::printFunctionExecuted(int executeCode) {
     switch(executeCode) {
         case NIL:
             std::cout << "<Instruction Does Not Exist>" <<std::endl;
@@ -485,6 +542,14 @@ void printFunctionExecuted(int executeCode) {
             std::cout << "UNDEFINED" <<std::endl;  
             break;
     }
+}
+
+void Chip::printDebug() {
+    std::cout << "I : "<< std::hex << I << "\n";
+    std::cout << "PC : "<< std::hex << PC << "\n";
+    std::cout << "opcode : "<< std::hex << opcode << "\n";
+    printRegisters();
+    std::cout << "\n";
 }
 
 }

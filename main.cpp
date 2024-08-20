@@ -1,13 +1,13 @@
 #include <iostream>
-#include "src/app/app.h"
+#include "src/chip8/app.h"
 
 
 
 
 int main(int argc, char **argv) {
    
-   App Chip8Emulator;
-   Chip8Emulator.run("roms/IBM_Logo.ch8");
+   chip8::App Chip8Emulator;
+   Chip8Emulator.run("roms/SpaceInvaders.ch8");
 
    PRINT("runs");
    return 0;

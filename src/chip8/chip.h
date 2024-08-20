@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include <fstream>
 #include <iostream>
+#include <cstdlib>
+#include <ctime> 
+
 #include <deque>
 
 #include "constants.h"
@@ -10,8 +13,17 @@
 
 //left bitshift on first byte to make first byte most signifcant to allow room for second byte
 //combine them with OR 
-#define BYTES_TO_UINT16(highByte, lowByte) (((uint16_t)(highByte) << 8) | (uint16_t)(lowByte))
-#define PRINT(toPrint) (std::cout<< toPrint << std::endl)
+#define BYTES_TO_UINT16(_highByte, _lowByte) (((uint16_t)(_highByte) << 8) | (uint16_t)(_lowByte))
+#define PRINT(_toPrint) (std::cout<< _toPrint << std::endl)
+//===========================================
+//	BIT MASKING MACROS
+//===========================================
+#define MASK_N000(_16bit)(_16bit >> 12)
+#define MASK_0N00(_16bit)((_16bit >> 8) & 0xF)
+#define MASK_00N0(_16bit)((_16bit & 0x00F0) >> 4)
+#define MASK_000N(_16bit)(_16bit & 0x0F)
+#define MASK_00NN(_16bit)((_16bit & 0x00FF))
+#define MASK_0NNN(_16bit)(_16bit & 0x0FFF)
 
 namespace chip8{
 
@@ -75,23 +87,21 @@ class Chip {
 //	SPECS
 //===========================================
     uint8_t
-    mem[memorySize],
-    V[registers],
-    input[inputSize],
-    DT,
-    ST,
-    SP;
+        frameBuffer[maxWidth][maxHeight],
+        mem[memorySize],
+        V[registers],
+        input[inputSize],
+        DT,
+        ST,
+        SP;
 
     uint16_t
-    stack[stackSize],
-    opcode,
-    I,
-    PC;
+        stack[stackSize],
+        opcode,
+        I,
+        PC;
 
-    uint8_t
-    frameBuffer[maxWidth][maxHeight];
-
-    public: 
+public: 
 
     Chip();
 //===========================================
@@ -107,18 +117,24 @@ class Chip {
     instruction decode(uint16_t instr);
     instruction decode(bool debug, uint16_t instr);
     int execute(instruction funct);
-
 //===========================================
-//	ACCESSOR/IO
+//  STACK OPERATIONS
+//===========================================
+    int stackPush(uint16_t item);
+    int stackPop();
+    uint16_t stackTop();
+//===========================================
+//	ACCESSOR/MUTATORS
 //===========================================
     uint8_t getFrameBuffer(int x, int y){return frameBuffer[x][y];}
     uint16_t getOpcode(){return opcode;}
-
+    void setOpcode(uint16_t t_opcode){opcode = t_opcode;}
+    void setInput(uint8_t inpt, uint8_t value) {input[inpt] = value;}
 //===========================================
 //	TESTING
 //===========================================
-    void setOpcode(uint16_t t_opcode){opcode = t_opcode;}
     void printRegisters();
+    void printDebug();
     void printFunctionExecuted(int executeCode);
 };
 
@@ -159,3 +175,5 @@ SPECIAL REGISTERS
     ANNN (set index register I)
     DXYN (display/draw)
 */
+
+/* RUN SPACE INVADERS [] */
